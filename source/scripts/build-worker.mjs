@@ -1,0 +1,12 @@
+import {readFile,writeFile,mkdir} from 'node:fs/promises';
+import {resolve} from 'node:path';
+const root=resolve(new URL('..',import.meta.url).pathname);
+const files=[['index.html','text/html; charset=utf-8'],['styles.css','text/css; charset=utf-8'],['engine.js','text/javascript; charset=utf-8'],['app.js','text/javascript; charset=utf-8']];
+const assets={};for(const [file,type]of files)assets['/'+file]={body:await readFile(resolve(root,'public',file),'utf8'),type};
+const schema=(await readFile(resolve(root,'server/schema.mjs'),'utf8')).replace(/^export /gm,'');
+const worker=(await readFile(resolve(root,'server/worker.mjs'),'utf8')).replace(/^import .*schema\.mjs';\n/,'');
+const source='const ASSETS = '+JSON.stringify(assets)+';\n'+schema+'\n'+worker;
+await mkdir(resolve(root,'dist/server'),{recursive:true});await mkdir(resolve(root,'dist/.openai'),{recursive:true});await writeFile(resolve(root,'dist/server/index.js'),source);
+const manifest=JSON.parse(await readFile(resolve(root,'.openai/hosting.json'),'utf8'));if(manifest.static)throw Error('Worker build requires removal of static-only hosting configuration');await writeFile(resolve(root,'dist/.openai/hosting.json'),JSON.stringify(manifest,null,2)+'\n');
+const loaded=await import('data:text/javascript;base64,'+Buffer.from(source).toString('base64'));if(typeof loaded.default?.fetch!=='function')throw Error('Missing default.fetch');
+console.log('Worker artifact built and ESM fetch entrypoint verified.');
