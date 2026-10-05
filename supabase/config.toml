@@ -1,0 +1,6 @@
+project_id = "project-forge"
+
+[functions.ai-assist]
+enabled = true
+verify_jwt = false
+entrypoint = "./functions/ai-assist/index.ts"
