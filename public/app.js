@@ -17,6 +17,14 @@ function renderResearch(){
  const link=id=>{const v=x.sources.find(v=>v.id===id);return v?'<a href="'+esc(v.url)+'" target="_blank" rel="noopener noreferrer">['+esc(id)+'] '+esc(v.title)+'</a>':'';};
  $('researchResults').innerHTML='<p>'+esc(x.searched_at)+' · مصادر جُمعت ببحث ويب</p>'+x.similar_products.map(v=>'<article class="research-card"><strong>'+esc(v.name)+'</strong><p>'+esc(v.similarity)+'</p><p>'+esc(v.lesson)+'</p>'+link(v.source_id)+'</article>').join('')+'<h3>اللغات والمكوّنات المقترحة</h3><p dir="ltr">'+esc(x.languages.join(', '))+'</p>'+x.components.map(v=>'<p><strong>'+esc(v.name)+'</strong> · '+esc(v.version||'إصدار غير متحقق')+' — '+esc(v.purpose)+' '+link(v.source_id)+'</p>').join('')+'<details><summary>كل مصادر البحث</summary>'+x.sources.map(v=>'<p>'+link(v.id)+'</p>').join('')+'</details>';
 }
+function researchProgress(){
+ const started=Date.now();
+ $('researchStatus').textContent='الطلب جارٍ — ننتظر نتيجة التحليل والبحث.';
+ $('researchWaitNote').textContent='تظهر المصادر والمقترحات عند اكتمال النتيجة. اختياراتك الحالية محفوظة.';
+ function update(){const seconds=Math.floor((Date.now()-started)/1000);$('researchElapsed').textContent=Math.floor(seconds/60)+':'+String(seconds%60).padStart(2,'0');if(seconds>=90)$('researchWaitNote').textContent='الطلب أخذ وقتًا أطول. ما زلنا ننتظر الرد؛ يمكنك إلغاء الطلب مع الاحتفاظ باختياراتك.';}
+ update();const interval=setInterval(update,1000);
+ return ()=>clearInterval(interval);
+}
 async function research(){
  const b=check();if(!b||researchController||checkingAuto)return;
  if(!connectionReady){
@@ -26,46 +34,33 @@ async function research(){
  }
  const controller=new AbortController();researchController=controller;
  $('researchBusy').classList.remove('hidden');$('autoStart').disabled=true;$('autoAll').disabled=true;
- const timer=setTimeout(()=>controller.abort(),240000);
+ const stopProgress=researchProgress();
+ const timer=setTimeout(()=>controller.abort('client-timeout'),540000);
  try{
-  const response=await B.request('/api/research',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({project:b}),signal:controller.signal});
-  const data=await response.json();if(!response.ok)throw Error(data.error||'تعذّر إكمال البحث.');
+  const data=await B.research(b,controller.signal,stage=>{
+   $('researchStatus').textContent=stage==='search'?'جارٍ بحث الويب مباشرة عبر OpenAI…':'اكتمل بحث الويب — جارٍ تحليل المصادر وتوليد مواصفات المشروع.';
+   $('researchWaitNote').textContent=stage==='search'?'نبحث عن مشاريع مشابهة وتقنيات مناسبة. يمكنك إلغاء الطلب.':'تُعتمد المقترحات بعد اكتمال التحليل. اختياراتك الحالية محفوظة.';
+  });
   if(controller.signal.aborted)return;
   const candidate=S.fromResearch(b,data);project=candidate;result=null;populate();renderResearch();show('shape');toast('اكتمل التحليل والبحث. جميع الاختيارات مقترحات قابلة للتعديل.');
- }catch(e){const message=controller.signal.aborted?'أُلغي البحث أو انتهت المهلة؛ اختياراتك السابقة محفوظة.':e.message;$('ideaError').textContent=message;$('ideaError').classList.remove('hidden');toast(message);}
- finally{clearTimeout(timer);researchController=null;$('researchBusy').classList.add('hidden');$('autoStart').disabled=false;$('autoAll').disabled=false;}
+ }catch(e){const message=controller.signal.aborted?(controller.signal.reason==='client-timeout'?'انتهت مهلة انتظار الرد من OpenAI؛ اختياراتك السابقة محفوظة.':'أُلغيت العملية؛ اختياراتك السابقة محفوظة.'):e.message;$('ideaError').textContent=message;$('ideaError').classList.remove('hidden');toast(message);}
+ finally{clearTimeout(timer);stopProgress();researchController=null;$('researchBusy').classList.add('hidden');$('autoStart').disabled=false;$('autoAll').disabled=false;}
 }
-function showBackendSettings(){const c=B.get();$('backendProvider').value=c.provider;$('supabaseUrl').value=c.provider==='supabase'?c.url+'/functions/v1/'+c.functionName:c.url;$('supabasePublicKey').value=c.key;$('supabaseSettings').classList.toggle('hidden',c.provider!=='supabase');}
+function showBackendSettings(){const c=B.get();$('openaiModel').value=c.model;$('openaiKey').value='';$('openaiKey').placeholder=c.configured?'المفتاح مفعّل لهذه الصفحة — أدخل مفتاحًا لتغييره':'مفتاحك الشخصي — لا يُحفظ بالملفات';}
 async function checkConnection(){
- const current=++connectionCheck,c=B.get(),controller=new AbortController();let message='';connectionReady=false;
- const setup='Auto غير مفعّل على الخادم الحالي. افتح إعداد اتصال الخلفية، اختر Supabase، وأدخل Project URL والمفتاح العام ثم اضغط حفظ وفحص الاتصال.';
- const origin=window.location?.origin;
- const originHint=window.location?.protocol==='file:'||origin==='null'||origin==='file://'?' افتح الواجهة المنشورة بدل فتح index.html مباشرة.':origin?' أضف '+origin+' إلى FORGE_ALLOWED_ORIGINS في Secrets.':' راجع FORGE_ALLOWED_ORIGINS في Secrets.';
- $('connectionStatus').textContent='جارٍ فحص اتصال الخلفية…';
- const timer=setTimeout(()=>controller.abort(),12000);
- try{
-  const r=await B.request('/api/status',{headers:{Accept:'application/json'},signal:controller.signal});
-  let data;try{data=await r.json();}catch{data={};}
-  if(current!==connectionCheck)return;
-  connectionReady=r.ok&&data.ready===true&&data.research===true;
-  if(!connectionReady){
-   if(c.provider==='auto')message=data.error||setup;
-   else if(r.status===401)message='Supabase رفض الاتصال. تأكد أن المفتاح العام من نفس المشروع، وعطّل Verify JWT لوظيفة '+c.functionName+'.';
-   else if(r.status===404)message='وظيفة '+c.functionName+' غير موجودة على هذا المسار. انسخ رابط الوظيفة الكامل من Edge Functions وأدخله في إعداد الاتصال.';
-   else if(data.error)message=data.error;
-   else message=r.ok?'الخلفية وصلت، لكن إعداد AI غير مكتمل. راجع OPENAI_API_KEY وOPENAI_MODEL وFORGE_ALLOWED_ORIGINS في Secrets، ثم أعد الفحص.':'تعذّر فحص الخلفية (HTTP '+r.status+'). راجع نشر وظيفة '+c.functionName+' وإعداداتها.';
-  }
- }catch{if(current!==connectionCheck)return;message=c.provider==='auto'?setup:'تعذّر الوصول إلى Supabase. راجع رابط وظيفة '+c.functionName+' ونشرها.'+originHint;}
- finally{clearTimeout(timer);}
- connectionError=message;
- $('connectionStatus').textContent=connectionReady?'الخلفية مهيأة. اضغط Auto لتنفيذ بحث فعلي وفحص خدمة AI.':message;
- $('backendError').textContent=message;$('backendError').classList.toggle('hidden',!message||c.provider!=='supabase');
+ const current=++connectionCheck;connectionReady=false;
+ if(!B.get().configured){connectionError='أدخل مفتاح OpenAI في إعداد الاتصال المباشر لتشغيل Auto. التشكيل اليدوي وتصدير PRD متاحان الآن.';$('connectionStatus').textContent=connectionError;return;}
+ $('connectionStatus').textContent='جارٍ فحص الوصول إلى نموذج OpenAI…';
+ try{await B.check();if(current!==connectionCheck)return;connectionReady=true;connectionError='';$('connectionStatus').textContent='OpenAI متصل مباشرة. اضغط Auto لبدء البحث والتحليل.';}
+ catch(e){if(current!==connectionCheck)return;connectionError=e.message;$('connectionStatus').textContent=connectionError;}
+ $('backendError').textContent=connectionError;$('backendError').classList.toggle('hidden',!connectionError);
 }
-$('backendProvider').addEventListener('change',()=>{$('supabaseSettings').classList.toggle('hidden',$('backendProvider').value!=='supabase');});
 $('saveBackend').addEventListener('click',async()=>{
- try{B.set({provider:$('backendProvider').value,url:$('supabaseUrl').value,key:$('supabasePublicKey').value});researchController?.abort();$('backendError').classList.add('hidden');showBackendSettings();await checkConnection();toast(connectionReady?'حُفظ اتصال الخلفية. جرّب Auto.':'حُفظ الإعداد؛ الخلفية تحتاج مراجعة.');}catch(e){$('backendError').textContent=e.message;$('backendError').classList.remove('hidden');}
+ if(researchController)return;
+ try{B.set({key:$('openaiKey').value,model:$('openaiModel').value});$('backendError').classList.add('hidden');showBackendSettings();await checkConnection();toast(connectionReady?'تم تفعيل المفتاح لهذه الصفحة. جرّب Auto.':connectionError);}
+ catch(e){$('backendError').textContent=e.message;$('backendError').classList.remove('hidden');}
 });
-$('resetBackend').addEventListener('click',async()=>{researchController?.abort();B.clear();$('backendError').classList.add('hidden');showBackendSettings();await checkConnection();});
+$('resetBackend').addEventListener('click',async()=>{researchController?.abort();B.clear();$('backendError').classList.add('hidden');showBackendSettings();await checkConnection();toast('تم مسح المفتاح من ذاكرة الصفحة.');});
 showBackendSettings();
 $('kind').innerHTML=Object.entries(E.KINDS).map(([v,label])=>'<option value="'+v+'">'+esc(label)+'</option>').join('');
 function renderFeatures(){$('featureEditor').innerHTML=Object.entries(S.features).map(([id,v])=>'<label class="feature-choice"><input type="checkbox" data-feature="'+id+'" '+(project.features.includes(id)?'checked':'')+'><span>'+esc(v[0])+'</span></label>').join('');}
