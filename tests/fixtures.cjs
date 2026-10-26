@@ -11,3 +11,11 @@ const sources=[{id:'R1',title:'Similar calculator',url:'https://example.com/calc
 const evidence={languages:['JavaScript'],similar_products:[{name:'Calculator A',source_id:'R1',similarity:'Power and time calculation',lesson:'Keep units close to results'},{name:'Calculator B',source_id:'R2',similarity:'Scenario comparison',lesson:'Display changed inputs'}],components:[{name:'Native HTML forms',version:'',source_id:'R2',purpose:'Accessible inputs'}]};
 const researchResult={project_name:'Energy planner',analysis,resolved_brief:brief,shape,research:{searched_at:'2026-10-04T10:00:00Z',sources,...evidence}};
 module.exports.shape=shape;module.exports.sources=sources;module.exports.evidence=evidence;module.exports.researchResult=researchResult;
+
+const githubSource={id:'R3',title:'Example energy planner repository',url:'https://github.com/example/energy-planner'};
+const github={status:'matched',summary:'A functionally similar energy calculator.',repositories:[{name:'example/energy-planner',source_id:'R3',similarity:'Energy calculation and scenario comparison',reuse:'Study the input validation and comparison layout',license:'Unverified',activity:'Unverified',cautions:'Inspiration only; inspect license and code before reuse'}]};
+evidence.github=github;
+researchResult.research.sources=[...sources,githubSource];
+researchResult.research.github={...github,repositories:github.repositories.map(v=>({...v,url:githubSource.url}))};
+module.exports.githubSource=githubSource;
+module.exports.github=github;

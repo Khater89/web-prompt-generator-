@@ -87,6 +87,10 @@ function create(raw){
   const x=p.research;
   prd+='\n## '+T('البحث والمشاريع المشابهة','Research and similar projects')+'\n\n'+T('تاريخ البحث: ','Research date: ')+x.searched_at+'\n\n';
   prd+=(x.similar_products||[]).map(v=>'- '+v.name+' ['+v.source_id+']: '+v.similarity+' — '+v.lesson).join('\n');
+  if(x.github){
+   const gh=x.github;
+   prd+='\n\n### '+T('مستودعات GitHub المشابهة','Similar GitHub repositories')+'\n\n'+gh.summary+'\n'+(gh.repositories||[]).map(v=>'- ['+v.name+']('+v.url+') ['+v.source_id+']\n  '+T('الملاءمة: ','Fit: ')+v.similarity+'\n  '+T('الاستفادة المقترحة: ','Suggested reuse: ')+v.reuse+'\n  '+T('الترخيص: ','License: ')+v.license+'\n  '+T('الصيانة والنشاط: ','Maintenance and activity: ')+v.activity+'\n  '+T('القيود: ','Limitations: ')+v.cautions).join('\n');
+  }
   prd+='\n\n'+T('اللغات والمكوّنات المقترحة وقت البحث:','Languages and components proposed at research time:')+'\n'+(x.languages||[]).join(', ')+'\n'+(x.components||[]).map(v=>'- '+v.name+' — '+(v.version||T('إصدار غير متحقق','Version unverified'))+' ['+v.source_id+']: '+v.purpose).join('\n');
   prd+='\n\n'+T('مصادر البحث:','Research sources:')+'\n'+x.sources.map(v=>'- ['+v.id+'] ['+v.title.replace(/[\[\]\n]/g,' ')+']('+v.url+')').join('\n');
   if(raw.aiStale)prd+='\n\n'+T('تغيّر نطاق المشروع بعد البحث. توصية البحث السابقة تحتاج إعادة تحليل؛ هذه الوثيقة تعكس اختياراتك الحالية بقواعد محلية.','Scope changed after research. Previous research recommendations require reanalysis; this document reflects current selections using local rules.');

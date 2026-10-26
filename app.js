@@ -15,7 +15,11 @@ function renderResearch(){
  const x=project?.research;$('researchPanel').classList.toggle('hidden',!x);
  if(!x)return;
  const link=id=>{const v=x.sources.find(v=>v.id===id);return v?'<a href="'+esc(v.url)+'" target="_blank" rel="noopener noreferrer">['+esc(id)+'] '+esc(v.title)+'</a>':'';};
- $('researchResults').innerHTML='<p>'+esc(x.searched_at)+' · مصادر جُمعت ببحث ويب</p>'+x.similar_products.map(v=>'<article class="research-card"><strong>'+esc(v.name)+'</strong><p>'+esc(v.similarity)+'</p><p>'+esc(v.lesson)+'</p>'+link(v.source_id)+'</article>').join('')+'<h3>اللغات والمكوّنات المقترحة</h3><p dir="ltr">'+esc(x.languages.join(', '))+'</p>'+x.components.map(v=>'<p><strong>'+esc(v.name)+'</strong> · '+esc(v.version||'إصدار غير متحقق')+' — '+esc(v.purpose)+' '+link(v.source_id)+'</p>').join('')+'<details><summary>كل مصادر البحث</summary>'+x.sources.map(v=>'<p>'+link(v.id)+'</p>').join('')+'</details>';
+ $('researchResults').innerHTML='<p>'+esc(x.searched_at)+' · مصادر جُمعت ببحث ويب</p>'+x.similar_products.map(v=>'<article class="research-card"><strong>'+esc(v.name)+'</strong><p>'+esc(v.similarity)+'</p><p>'+esc(v.lesson)+'</p>'+link(v.source_id)+'</article>').join('')+githubResults(x.github)+'<h3>اللغات والمكوّنات المقترحة</h3><p dir="ltr">'+esc(x.languages.join(', '))+'</p>'+x.components.map(v=>'<p><strong>'+esc(v.name)+'</strong> · '+esc(v.version||'إصدار غير متحقق')+' — '+esc(v.purpose)+' '+link(v.source_id)+'</p>').join('')+'<details><summary>كل مصادر البحث</summary>'+x.sources.map(v=>'<p>'+link(v.id)+'</p>').join('')+'</details>';
+}
+function githubResults(gh){
+ if(!gh)return '';
+ return '<h3>مستودعات GitHub المشابهة</h3><p><strong>'+esc(({matched:'مستودعات مقترحة حسب صلتها بالمشروع',no_match:'لم يُعثر على مستودعات مناسبة',unavailable:'تعذّر إكمال بحث GitHub'})[gh.status]||'')+'</strong></p><p>'+esc(gh.summary)+'</p>'+(gh.repositories||[]).map(v=>'<article class="research-card"><strong><a href="'+esc(v.url)+'" target="_blank" rel="noopener noreferrer" dir="ltr">'+esc(v.name)+'</a></strong><p><b>سبب الملاءمة:</b> '+esc(v.similarity)+'</p><p><b>ما يمكن الاستفادة منه:</b> '+esc(v.reuse)+'</p><p><b>الترخيص:</b> '+esc(v.license)+'</p><p><b>النشاط والصيانة:</b> '+esc(v.activity)+'</p><p><b>حدود الاستخدام:</b> '+esc(v.cautions)+'</p></article>').join('');
 }
 function researchProgress(){
  const started=Date.now();
@@ -38,8 +42,8 @@ async function research(){
  const timer=setTimeout(()=>controller.abort('client-timeout'),540000);
  try{
   const data=await B.research(b,controller.signal,stage=>{
-   $('researchStatus').textContent=stage==='search'?'جارٍ بحث الويب مباشرة عبر OpenAI…':'اكتمل بحث الويب — جارٍ تحليل المصادر وتوليد مواصفات المشروع.';
-   $('researchWaitNote').textContent=stage==='search'?'نبحث عن مشاريع مشابهة وتقنيات مناسبة. يمكنك إلغاء الطلب.':'تُعتمد المقترحات بعد اكتمال التحليل. اختياراتك الحالية محفوظة.';
+   $('researchStatus').textContent=stage==='search'?'جارٍ بحث الويب ومستودعات GitHub عبر OpenAI…':'اكتمل بحث الويب — جارٍ تحليل المصادر وتوليد مواصفات المشروع.';
+   $('researchWaitNote').textContent=stage==='search'?'نبحث عن مشاريع ومستودعات GitHub مشابهة وتقنيات مناسبة. يمكنك إلغاء الطلب.':'تُعتمد المقترحات بعد اكتمال التحليل. اختياراتك الحالية محفوظة.';
   });
   if(controller.signal.aborted)return;
   const candidate=S.fromResearch(b,data);project=candidate;result=null;populate();renderResearch();show('shape');toast('اكتمل التحليل والبحث. جميع الاختيارات مقترحات قابلة للتعديل.');

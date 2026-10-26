@@ -23,7 +23,7 @@ function validate(value,schema,path='response'){
 const researchSchema=object({
  project_name:str(100,1),analysis:analysisSchema,resolved_brief:briefSchema,
  shape:object({layout:choice(['narrative','working','sidebar','single']),theme:choice(['light','dark','system']),motion:choice(['subtle','expressive','none']),density:choice(['comfortable','spacious','compact']),features:list(choice(['search','export','compare','charts','upload','notifications','history','contact','gallery']),9),customFeatures:str(4000)}),
- evidence:object({languages:list(str(160,1),8,1),similar_products:list(object({name:str(300,1),source_id:str(30,1),similarity:str(3000,1),lesson:str(3000,1)}),5,2),components:list(object({name:str(300,1),version:str(100),source_id:str(30,1),purpose:str(3000,1)}),12,1)})
+ evidence:object({github:object({status:choice(['matched','no_match','unavailable']),summary:str(3000,1),repositories:list(object({name:str(300,1),source_id:str(30,1),similarity:str(2000,1),reuse:str(2000,1),license:str(500,1),activity:str(1000,1),cautions:str(2000,1)}),5)}),languages:list(str(160,1),8,1),similar_products:list(object({name:str(300,1),source_id:str(30,1),similarity:str(3000,1),lesson:str(3000,1)}),5,2),components:list(object({name:str(300,1),version:str(100),source_id:str(30,1),purpose:str(3000,1)}),12,1)})
 });
 
 root.ForgeSchema={researchSchema,validate};
